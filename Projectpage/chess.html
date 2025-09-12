@@ -1,0 +1,32 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess - Click & Play</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="pages.css">
+    <link rel="stylesheet" href="chess/chess-game.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="page-title">Chess</h1>
+        </header>
+        <main>
+            <div id="game-container">
+                <div id="game-info">
+                    <div id="turn-indicator">White's Turn</div>
+                    <div id="game-status"></div>
+                    <button id="reset-button">Reset</button>
+                    <button id="ai-button">AI (Black): OFF</button>
+                </div>
+                <div id="chessboard"></div>
+            </div>
+            <a href="index.html" class="back-link">Back to Home</a>
+        </main>
+    </div>
+    <script src="chess/chess.js"></script>
+</body>
+</html>

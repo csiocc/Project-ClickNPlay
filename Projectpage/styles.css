@@ -1,0 +1,68 @@
+body {
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column; /* Added to allow main to take vertical space */
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.container {
+    /* padding: 2rem; */ /* Removed padding */
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Allow container to take available space */
+    width: 100%; /* Ensure container takes full width */
+    /* max-width: 1200px; */ /* Optional: limit overall width - REMOVED */
+}
+
+main {
+    flex: 1; /* Allow main to take available space */
+    display: flex;
+    flex-direction: column; /* Changed to column to stack game and back button */
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 1rem;
+    max-width: 66vw; /* Limit to 2/3rds of viewport width */
+    margin: 0 auto; /* Added to center the main content */
+}
+
+.main-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 4rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 10px #00bcd4, 0 0 20px #00bcd4, 0 0 30px #00bcd4;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+}
+
+nav a {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 300;
+    padding: 0.5rem 1rem;
+    border: 1px solid #00bcd4;
+    border-radius: 5px;
+    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+}
+
+nav a:hover {
+    background-color: #00bcd4;
+    color: #121212;
+    box-shadow: 0 0 15px #00bcd4;
+}

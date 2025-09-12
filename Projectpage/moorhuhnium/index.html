@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <!-- WICHTIG: Sorgt für die korrekte Skalierung auf Mobilgeräten -->
+    <meta name="viewport" content="width=device-width, initial-scale=0.8">
+    <title>Moorhuhnium</title>
+    <link rel="stylesheet" href="styles.css"> 
+</head>
+<body>
+
+  <div id="page-container">
+      <div id="game-wrapper">
+          <!-- UI-Leiste -->
+          <div id="ui-bar">
+              <div id="scoreDisplay">Score: 0</div>
+              <div id="timerDisplay">Time: 30</div>
+              <div id="ammoDisplay">Ammo: 8</div>
+          </div>
+
+          <!-- Spiel-Container -->
+          <div id="gameContainer">
+              <canvas id="gameCanvas"></canvas>
+
+              <!-- Startbildschirm -->
+              <div id="startScreen" class="screen-overlay">
+                  <h1>Moorhuhnium</h1>
+                  <p>Gib deinen Namen ein, um zu starten!</p>
+                  <input type="text" id="playerNameInput" placeholder="Dein Name" maxlength="15">
+                  <button id="startGameBtn">Spiel starten</button>
+              </div>
+
+              <!-- Leaderboard -->
+              <div id="leaderboardScreen" class="screen-overlay">
+                <h1>Bestenliste</h1>
+                <table id="leaderboardTable">
+                    <thead>
+                        <tr>
+                            <th>Platz</th>
+                            <th>Name</th>
+                            <th>Punkte</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+                <button id="restartGameBtn">Neustart</button>
+            </div>
+              
+              <!-- Custom Alert -->
+              <div id="customAlert" class="screen-overlay">
+                  <h2 id="customAlertMessage"></h2>
+                  <button id="customAlertButton">OK</button>
+              </div>
+          </div>
+      </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
