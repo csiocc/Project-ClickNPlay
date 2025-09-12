@@ -10,16 +10,16 @@
 /*   overflow: hidden; */ /* Verhindert Scrollbalken */
 /* } */
 
-/* Hauptcontainer, der alles zentriert - REMOVED */
-/* #page-container { */
-/*   display: flex; */
-/*   justify-content: center; */
-/*   align-items: center; */
-/*   width: 100%; */
-/*   height: 100%; */
-/*   padding: 10px; */
-/*   box-sizing: border-box; */
-/* } */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: black; /* Hintergrund schwarz */
+  font-family: Arial, sans-serif;
+  color: white;
+  overflow: hidden; /* Verhindert Scrollbalken */
+}
 
 /* Der Container, der das Spiel und die UI umschließt */
 #game-wrapper {
