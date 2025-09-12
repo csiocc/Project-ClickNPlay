@@ -164,3 +164,22 @@ canvas {
 #customAlert {
   z-index: 100;
 }
+
+/* --- NEU: Stile für den "Back to Home"-Link --- */
+.back-link {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #f0f0f0;
+  color: #333;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.back-link:hover {
+  background-color: #ddd;
+  color: #000;
+}
+/* --- ENDE DER NEUEN STILE --- */
