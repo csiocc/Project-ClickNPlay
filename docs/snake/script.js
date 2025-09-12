@@ -174,4 +174,3 @@
     // Start
     initGame();
     draw();
-  draw();
