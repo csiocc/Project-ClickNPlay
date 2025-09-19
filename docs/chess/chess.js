@@ -112,8 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return moves;
         }
-
-        // ✅ kein Castling hier → verhindert Endlosschleife in isCheck()
         getAttackMoves(board) {
             const deltas = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
             return jumpMoves(this, board, deltas);
@@ -185,32 +183,33 @@ document.addEventListener('DOMContentLoaded', () => {
             this.grid[7][7].piece = new Rook('white', this.grid[7][7]);
             for (let i=0;i<8;i++) this.grid[6][i].piece = new Pawn('white', this.grid[6][i]);
         }
+
         movePiece(move) {
-            const {startRow,startCol,endRow,endCol} = move;
-            const startTile = this.getTile(startRow,startCol);
-            const endTile = this.getTile(endRow,endCol);
+            const { startRow, startCol, endRow, endCol } = move;
+            const startTile = this.getTile(startRow, startCol);
+            const endTile = this.getTile(endRow, endCol);
             const piece = startTile.piece;
 
+            const capturedPiece = endTile.piece;
+            const wasFirstMove = piece.firstMove;
+
             // En passant
+            let enPassantCapture = null;
             if (piece instanceof Pawn && endTile.enPassant) {
-                const capTile = this.getTile(startRow,endCol);
-                capTile.piece = null;
+                const capturedPawnTile = this.getTile(startRow, endCol);
+                enPassantCapture = capturedPawnTile.piece;
+                capturedPawnTile.piece = null;
             }
 
             // Castling
+            let castlingRookMove = null;
             if (piece instanceof King && Math.abs(endCol - startCol) === 2) {
-                if (endCol === 6) { // kingside
-                    const rookTile = this.getTile(startRow,7);
-                    const rook = rookTile.piece;
-                    this.getTile(startRow,5).piece = rook;
-                    rook.tile = this.getTile(startRow,5);
-                    rookTile.piece = null;
-                } else { // queenside
-                    const rookTile = this.getTile(startRow,0);
-                    const rook = rookTile.piece;
-                    this.getTile(startRow,3).piece = rook;
-                    rook.tile = this.getTile(startRow,3);
-                    rookTile.piece = null;
+                if (endCol === 6) {
+                    const rook = this.getTile(startRow,7).piece;
+                    castlingRookMove = this.movePiece({piece:rook,startRow,endRow:startRow,startCol:7,endCol:5});
+                } else {
+                    const rook = this.getTile(startRow,0).piece;
+                    castlingRookMove = this.movePiece({piece:rook,startRow,endRow:startRow,startCol:0,endCol:3});
                 }
             }
 
@@ -224,7 +223,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.getTile((startRow+endRow)/2, startCol).enPassant = true;
             }
 
+            // ✅ Promotion
+            if (piece instanceof Pawn && (endRow === 0 || endRow === 7)) {
+                endTile.piece = new Queen(piece.color, endTile);
+            }
+
             this.lastMove = move;
+            return { ...move, capturedPiece, wasFirstMove, enPassantCapture, castlingRookMove };
+        }
+
+        unmakeMove(move) {
+            const { startRow, startCol, endRow, endCol, capturedPiece, wasFirstMove, enPassantCapture, castlingRookMove } = move;
+            const startTile = this.getTile(startRow, startCol);
+            const endTile = this.getTile(endRow, endCol);
+            const piece = endTile.piece;
+
+            startTile.piece = piece;
+            endTile.piece = capturedPiece;
+            piece.tile = startTile;
+            piece.firstMove = wasFirstMove;
+
+            if (enPassantCapture) {
+                const capturedPawnTile = this.getTile(startRow, endCol);
+                capturedPawnTile.piece = enPassantCapture;
+            }
+            if (castlingRookMove) {
+                this.unmakeMove(castlingRookMove);
+            }
+            this.grid.flat().forEach(t => t.enPassant = false);
         }
 
         getKing(color) {
@@ -244,11 +270,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         isCheckmate(color) {
             const king = this.getKing(color);
+            if (!king) return true;
             if (!this.isCheck(king.tile.row,king.tile.col,color)) return false;
             return ai.getAllMoves(this,color).length===0;
         }
         isStalemate(color) {
             const king = this.getKing(color);
+            if (!king) return false;
             if (this.isCheck(king.tile.row,king.tile.col,color)) return false;
             return ai.getAllMoves(this,color).length===0;
         }
@@ -279,7 +307,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const p=board.getTile(i,j).piece;
                     if (p && p.color===color) {
                         for (const [r,c] of p.getValidMoves(board)) {
-                            all.push({piece:p,startRow:i,startCol:j,endRow:r,endCol:c});
+                            const move={piece:p,startRow:i,startCol:j,endRow:r,endCol:c};
+                            const moveData=board.movePiece(move);
+                            const king=board.getKing(color);
+                            const inCheck=king && board.isCheck(king.tile.row,king.tile.col,color);
+                            board.unmakeMove(moveData);
+                            if(!inCheck) all.push(move);
                         }
                     }
                 }
@@ -290,20 +323,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const moves=this.getAllMoves(board,'black');
             let best=null, bestVal=Infinity;
             for (const m of moves) {
-                const captured=board.getTile(m.endRow,m.endCol).piece;
-                board.movePiece(m);
+                const moveData=board.movePiece(m);
                 const val=this.evaluateBoard(board);
-                // undo
-                const endT=board.getTile(m.endRow,m.endCol);
-                const startT=board.getTile(m.startRow,m.startCol);
-                startT.piece=m.piece;
-                m.piece.tile=startT;
-                endT.piece=captured;
+                board.unmakeMove(moveData);
                 if (val<bestVal) {bestVal=val;best=m;}
             }
             return best;
         }
         makeMove(board) {
+            if (gameOver) return;
             const best=this.getBestMove(board);
             if(best) {
                 board.movePiece(best);
@@ -326,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPlayer='white';
     let selectedTile=null;
     let aiEnabled=false;
+    let gameOver=false;
 
     // === Rendering ===
     function drawBoard() {
@@ -340,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if(tile.piece) {
                     const img=document.createElement('img');
-                    img.src=`chess/img/${tile.piece.getImageName()}.svg`; // ✅ Pfad fix
+                    img.src=`chess/img/${tile.piece.getImageName()}.svg`; 
                     img.className='piece';
                     div.appendChild(img);
                 }
@@ -349,22 +378,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // === Klicklogik ===
     function handleClick(tile) {
-        if(currentPlayer!=='white') return;
-        if(selectedTile) {
-            const piece=selectedTile.piece;
-            if(piece) {
-                const valid=piece.getValidMoves(board).map(m=>`${m[0]},${m[1]}`);
-                if(valid.includes(`${tile.row},${tile.col}`)) {
-                    board.movePiece({piece,startRow:selectedTile.row,startCol:selectedTile.col,endRow:tile.row,endCol:tile.col});
+        if (gameOver) return;
+        if (currentPlayer !== 'white') return;
+
+        board.grid.flat().forEach(t => t.element.classList.remove('selected', 'highlight'));
+
+        if (selectedTile) {
+            const piece = selectedTile.piece;
+            if (piece) {
+                const valid = piece.getValidMoves(board).map(m => `${m[0]},${m[1]}`);
+                if (valid.includes(`${tile.row},${tile.col}`)) {
+                    board.movePiece({
+                        piece,
+                        startRow: selectedTile.row,
+                        startCol: selectedTile.col,
+                        endRow: tile.row,
+                        endCol: tile.col
+                    });
                     drawBoard();
                     switchPlayer();
                     updateGameState();
+                    selectedTile = null;
+                    return;
                 }
             }
-            selectedTile=null;
-        } else if(tile.piece && tile.piece.color===currentPlayer) {
-            selectedTile=tile;
+            selectedTile = null;
+        } else if (tile.piece && tile.piece.color === currentPlayer) {
+            selectedTile = tile;
+            tile.element.classList.add('selected');
+
+            const moves = tile.piece.getValidMoves(board);
+            for (const [r, c] of moves) {
+                const t = board.getTile(r, c);
+                if (t) t.element.classList.add('highlight');
+            }
         }
     }
 
@@ -377,16 +426,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateGameState() {
-        if(board.isCheckmate(currentPlayer)) {
-            gameStatus.textContent=`${currentPlayer} checkmated!`;
-        } else if(board.isStalemate(currentPlayer)) {
-            gameStatus.textContent="Stalemate!";
+        if (board.isCheckmate(currentPlayer)) {
+            gameStatus.textContent = `${currentPlayer} is checkmated! ${currentPlayer==='white'?'Black':'White'} wins!`;
+            gameOver = true;
+        } else if (board.isStalemate(currentPlayer)) {
+            gameStatus.textContent = "Stalemate! Draw!";
+            gameOver = true;
         } else {
-            const king=board.getKing(currentPlayer);
-            if(board.isCheck(king.tile.row,king.tile.col,currentPlayer)) {
-                gameStatus.textContent=`${currentPlayer} is in check!`;
+            const king = board.getKing(currentPlayer);
+            if (king && board.isCheck(king.tile.row, king.tile.col, currentPlayer)) {
+                gameStatus.textContent = `${currentPlayer} is in check!`;
             } else {
-                gameStatus.textContent='';
+                gameStatus.textContent = '';
             }
         }
     }
@@ -395,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         board=new Board();
         currentPlayer='white';
         selectedTile=null;
+        gameOver=false;
         drawBoard();
         updateGameState();
         turnIndicator.textContent="White's Turn";
