@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FPS – WASD + Maus, 3D-Welt, Waves, Türme & Upgrades</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #0b0f14; color:#e6edf3; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    #hud { position:fixed; inset:0; pointer-events:none; }
+    #hud * { pointer-events:auto; } /* Kinder klickbar lassen (zur Sicherheit) */
+    #top { position:absolute; top:10px; left:10px; right:10px; display:flex; gap:12px; justify-content:space-between; align-items:center; }
+    .pill { background:#0b1222cc; border:1px solid #1f2937; border-radius:999px; padding:8px 12px; box-shadow:0 8px 30px #0006; display:flex; gap:14px; align-items:center; pointer-events:auto; }
+    #stats span{ white-space:nowrap; }
+
+    #wave-info { color: #a3e635; font-weight: bold; }
+    #shop { position:absolute; bottom:10px; right:10px; width:min(380px, 92vw); display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+    .btn { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; background:#0f172acc; border:1px solid #1f2937; transition: transform .06s ease, background .2s ease, border-color .2s ease; }
+    .btn:not(:disabled):hover { transform: translateY(-1px); background:#111a33; }
+    .btn .label{ font-weight:700; }
+    .btn .cost{ opacity:.8; }
+    #shop .btn { pointer-events:none; } /* Kaufen nur per Tasten */
+
+    #build-menu { position:absolute; left:10px; bottom:10px; display:flex; gap:10px; pointer-events:auto; }
+    .build-item { display:flex; gap:12px; align-items:center; width:220px; background:#0f172acc; border:1px solid #1f2937; border-radius:14px; padding:12px; pointer-events:none; /* Kaufen nur per Tasten */ }
+    .build-item[disabled] { opacity:0.5; }
+    .build-item .icon { font-size: 2.5rem; line-height: 1; }
+    .build-item .details { display:flex; flex-direction:column; }
+    .build-item .title { font-weight: 700; }
+    .build-item .desc { font-size:0.9em; opacity:0.8; }
+    .build-item .cost { margin-top: 4px; font-weight: 600; }
+
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0b1222; border:1px solid #1f2937; border-radius:6px; padding:2px 6px; }
+    .keycap { display:inline-flex; align-items:center; justify-content:center; min-width:1.4em; padding:2px 6px; border-radius:8px; border:1px solid #253049; background:#0b1222; font-weight:700; font-size:0.9em; margin-right:8px; }
+
+    #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000a; backdrop-filter: blur(2px); flex-direction:column; gap:10px; text-align:center; }
+    #overlay.hide{ display:none; }
+    #overlay button { pointer-events:auto; padding:12px 18px; border-radius:12px; border:1px solid #1f2937; background:#0f172a; color:#e6edf3; cursor:pointer; }
+    canvas { display:block; width:100vw; height:100vh; }
+    #diag { font-size:12px; opacity:.9; }
+    #testResults { white-space:pre-wrap; text-align:left; max-width:min(680px, 90vw); background:#0b1222; border:1px solid #1f2937; border-radius:10px; padding:8px 10px; }
+    #cross { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; }
+    #cross .hair { position:absolute; background:#cdd9e5; box-shadow: 0 0 4px #000a; }
+    #cross .hair:nth-child(1) { width:2px; height:8px; left:-1px; top:-11px; } /* Top */
+    #cross .hair:nth-child(2) { width:2px; height:8px; left:-1px; top:3px; }  /* Bottom */
+    #cross .hair:nth-child(3) { width:8px; height:2px; top:-1px; left:-11px; } /* Left */
+    #cross .hair:nth-child(4) { width:8px; height:2px; top:-1px; left:3px; }  /* Right */
+    #hitmarker { position:absolute; width:16px; height:16px; top:-8px; left:-8px; opacity:0; transition: opacity 0.12s ease-out; }
+    #hitmarker.active { opacity:1; transform: scale(1.1); }
+    .marker-line { position:absolute; background:#fff; width:2px; height:8px; box-shadow: 0 0 5px #000; }
+    .marker-line:nth-child(1) { top:-10px; left:-10px; transform: rotate(45deg); } /* Oben-Links */
+    #hitmarker.headshot .marker-line { background-color: #ff4d4d; } /* Roter Hitmarker für Headshots */
+    #hitmarker.headshot { transform: scale(1.3); }
+
+    .marker-line:nth-child(2) { top:-10px; right:-10px; transform: rotate(-45deg); } /* Oben-Rechts */
+    .marker-line:nth-child(3) { bottom:-10px; left:-10px; transform: rotate(-45deg); } /* Unten-Links */
+    .marker-line:nth-child(4) { bottom:-10px; right:-10px; transform: rotate(45deg); } /* Unten-Rechts */
+
+    #damage-vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(200,0,0,0.5) 100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease-out;
+    }
+
+    #notifications { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 10; }
+    .notification { background: #c0392bcc; color: white; padding: 8px 16px; border-radius: 8px; box-shadow: 0 4px 15px #0008; opacity: 1; transition: opacity 0.5s ease-out, transform 0.5s ease-out; transform: translateY(0); }
+    .notification.info { background: #27ae60cc; }
+    .notification.fade-out { opacity: 0; transform: translateY(-20px); }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+      "GLTFLoader": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js",
+      "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.0/build/index.module.js",
+      "BufferGeometryUtils": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/utils/BufferGeometryUtils.js",
+      "Turret": "./Turret.js",
+      "Zombie": "./Zombie.js",
+      "WaveManager": "./WaveManager.js",
+      "PlayerController": "./PlayerController.js",
+      "WeaponSystem": "./WeaponSystem.js",
+      "CanonTurret": "./CanonTurret.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="overlay">
+    <h1>FPS Demo (WASD + Maus)</h1>
+    <p id="diag">Lade Engine …</p>
+    <p>Steuerung: <span class="kbd">WASD</span> bewegen, <span class="kbd">Maus</span> umsehen, <span class="kbd">LMT</span> schießen,<br/>
+       <span class="keycap">1</span> Turm, <span class="keycap">2</span> Schaden, <span class="keycap">3</span> Feuerrate,
+       <span class="kbd">T</span> Turm platzieren, <span class="kbd">P</span> Pause, <span class="kbd">R</span> Neustart.</p>
+    <button id="startBtn" disabled>Start</button>
+    <div id="testResults" hidden></div>
+  </div>
+  <div id="cross">
+    <div class="hair"></div>
+    <div class="hair"></div>
+    <div class="hair"></div>
+    <div class="hair"></div>
+    <div id="hitmarker">
+      <div class="marker-line"></div>
+      <div class="marker-line"></div>
+      <div class="marker-line"></div>
+      <div class="marker-line"></div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="damage-vignette"></div>
+    <div id="notifications"></div>
+    <div id="top">
+      <div id="stats" class="pill">
+        <span>❤️ HP: <b id="hp">100</b></span>
+        <span>💰 Credits: <b id="credits">0</b></span>
+        <span>🌊 Wave: <b id="wave">1</b></span>
+        <span>🔫 DMG: <b id="dmg">10</b></span>
+        <span>⚡ Rate: <b id="rate">6/s</b></span>
+        <span>🛡️ Türme: <b id="turrets">0</b></span>
+        <span>🧟 Zombies: <b id="zombies">0</b></span>
+        <span id="wave-info" style="display: none;"></span>
+      </div>
+      <div class="pill" style="gap:8px;">
+        <button id="pauseBtn" class="btn"><span class="label">⏸️ Pause</span></button>
+        <button id="restartBtn" class="btn"><span class="label">🔁 Neustart</span></button>
+      </div>
+    </div>
+
+    <div id="shop">
+      <button class="btn" id="upgradeDmg"><span class="keycap">3</span><span class="label">💥 Schaden upgraden</span><span>+5 Schaden</span><span class="cost" id="dmgCost">Kosten: 80</span></button>
+      <button class="btn" id="upgradeRate"><span class="keycap">4</span><span class="label">⚡ Feuerrate upgraden</span><span>+1/s</span><span class="cost" id="rateCost">Kosten: 90</span></button>
+    </div>
+
+    <div id="build-menu">
+        <div class="build-item" id="buildGatling">
+            <div class="icon">🛠️</div>
+            <div class="details"><span class="title"><span class="keycap">1</span>Gatling-Turm</span><span class="desc">Schnell, Einzelziel</span><span class="cost" id="turretCost">Kosten: 100</span></div>
+        </div>
+        <div class="build-item" id="buildCanon">
+            <div class="icon">💣</div>
+            <div class="details"><span class="title"><span class="keycap">2</span>Kanonenturm</span><span class="desc">Langsam, Flächenschaden</span><span class="cost" id="canonCost">Kosten: 250</span></div>
+        </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+    import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MeshBVH } from 'three-mesh-bvh';
+    import { mergeGeometries } from 'BufferGeometryUtils';
+    import { Turret } from 'Turret';
+    import { WeaponSystem } from 'WeaponSystem';
+    import { PlayerController } from 'PlayerController';
+    import { WaveManager } from 'WaveManager';
+    import { Zombie } from 'Zombie';
+    import { CanonTurret } from 'CanonTurret';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+    const diag = document.getElementById('diag');
+    const startBtn = document.getElementById('startBtn');
+    const hitmarkerEl = document.getElementById('hitmarker');
+
+    // --- Renderer/Scene/Camera ---
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMappingExposure = 1.8; // Tag-hell
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+    const CAMERA_HEIGHT = 1.6;
+    camera.position.set(0, CAMERA_HEIGHT, 5);
+
+    const controls = new PointerLockControls(camera, renderer.domElement);
+    scene.add(controls.getObject());
+
+    const weaponMuzzle = new THREE.Object3D(); // Leeres Objekt für die Mündungsposition
+    // --- Waffenmodell ---
+    function loadWeapon() {
+      const loader = new GLTFLoader();
+      loader.load(
+        './models/Zombie_kit/Weapons/glTF/Rifle.gltf',
+        (gltf) => {
+          const weapon = gltf.scene;
+          weapon.traverse(node => {
+            if (node.isMesh) {
+              node.castShadow = true;
+              node.receiveShadow = true;
+            }
+          });
+          // Position, Rotation und Skalierung anpassen, damit es gut in der Ego-Perspektive aussieht
+          weapon.position.set(0.25, -0.4, -0.8);
+          weapon.rotation.y = Math.PI; // Waffe um 180 Grad drehen
+          weapon.scale.set(0.7, 0.7, 0.7);
+          weaponMuzzle.position.set(0, 0.05, 0.7); // Mündungsposition an das Ende des Laufs verschoben
+          weapon.add(weaponMuzzle);
+          camera.add(weapon); // Waffe an die Kamera heften
+        },
+        undefined,
+        (error) => {
+          console.error('Waffe konnte nicht geladen werden, erstelle prozedurale Waffe als Fallback.', error);
+          createProceduralWeapon(); // Fallback
+        }
+      );
+    }
+    loadWeapon();
+    // --- Licht ---
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x87ceeb, 1.0); scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.4); dir.position.set(30, 50, -10); dir.castShadow = true; scene.add(dir);
+ 
+    // --- Arena ---
+    const walls = new THREE.Group(); // Wird für Turm-Platzierung beibehalten, aber anders genutzt
+    let worldBVH = null;
+    scene.add(walls);
+
+    function loadMap() {
+      const loader = new GLTFLoader();
+      // Lade die .gltf-Datei aus dem von dir angegebenen Ordner.
+      loader.load('./models/Maps/city_of_the_sky/scene.gltf', (gltf) => {
+        const mapModel = gltf.scene;
+
+        // --- Modell Normalisierung ---
+        // 1. Setze die Transformationen des Wurzelknotens zurück, um Probleme zu vermeiden.
+        mapModel.scale.set(1, 1, 1);
+        mapModel.rotation.set(0, 0, 0);
+        mapModel.position.set(0, 0, 0);
+        mapModel.updateMatrixWorld(true); // Erzwinge die Aktualisierung der Matrizen
+
+        // 2. Erstelle eine BoundingBox um das gesamte Modell, um es zu zentrieren und zu skalieren.
+        const box = new THREE.Box3().setFromObject(mapModel);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        // 3. Verschiebe das Modell so, dass sein Zentrum am Ursprung (0,0,0) liegt.
+        mapModel.position.sub(center);
+
+        // 4. Skaliere das Modell auf eine vernünftige Größe.
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 150 / maxDim; // Zielgröße von 150 Einheiten
+        mapModel.scale.setScalar(scale);
+
+        // Füge das normalisierte Modell zur Szene hinzu
+        scene.add(mapModel);
+        mapModel.updateMatrixWorld(true); // Erneut aktualisieren nach allen Änderungen
+
+        // --- BVH Erstellung (jetzt mit korrekten Transformationen) ---
+        const geometries = [];
+        mapModel.traverse(node => {
+          if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+            const clonedGeom = node.geometry.clone();
+            clonedGeom.applyMatrix4(node.matrixWorld);
+            geometries.push(clonedGeom);
+          }
+        });
+
+        worldBVH = new MeshBVH(mergeGeometries(geometries, false));
+        raycaster.firstHitOnly = true;
+        console.log('Karte normalisiert und BVH erstellt.');
+        findSpawnPoint(mapModel);
+
+      }, undefined, (error) => {
+        console.error('Karte konnte nicht geladen werden:', error);
+      });
+    }
+
+    function findSpawnPoint(mapModel) {
+      const box = new THREE.Box3().setFromObject(mapModel);
+      for (let i=0; i<12; i++) {
+        const x = THREE.MathUtils.lerp(box.min.x, box.max.x, Math.random());
+        const z = THREE.MathUtils.lerp(box.min.z, box.max.z, Math.random());
+        const y = box.max.y + 50;
+        raycaster.set(new THREE.Vector3(x,y,z), new THREE.Vector3(0,-1,0));
+        const hits = worldBVH ? [worldBVH.raycastFirst(raycaster.ray)].filter(h => h) : [];
+        if (hits.length) {
+          spawnPos.copy(hits[0].point).y += CAMERA_HEIGHT;
+          console.log('Spawn via Sampling:', spawnPos);
+          return;
+        }
+      }
+      console.warn('Sampling fand nichts – Fallback bleibt.');
+    }
+
+    // Lade die 3D-Karte anstelle der prozeduralen Generierung
+    loadMap();
+
+    let spawnPos = new THREE.Vector3(0, CAMERA_HEIGHT, 5); // Fallback-Spawn, wird überschrieben
+
+    // --- State & HUD ---
+    const el = (id)=>document.getElementById(id);
+    const state = {
+      running:false, gameOver:false, hp:100, credits:0, wave:0, time:0,
+      damage:10, fireRate:6, lastShot:0,
+      enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, dmg:80, rate:90 },
+      speed:10, friction:10, vel:new THREE.Vector3(),
+      waveInProgress: false, timeUntilNextWave: 5, onGround: true,
+      timeUntilAmbientSpawn: 15, // Timer für zusätzliche Zombies
+    };
+    const hpEl=el('hp'), credEl=el('credits'), waveEl=el('wave'), dmgEl=el('dmg'), rateEl=el('rate'), turEl=el('turrets');
+    state.player = controls.getObject(); // Spielerobjekt im State verfügbar machen
+    state._shootHeld = false; // Zustand für gehaltene Maustaste
+    const waveInfoEl = el('wave-info');
+    const overlay = el('overlay');
+    function updateHUD(){
+      hpEl.textContent = Math.max(0, Math.ceil(state.hp));
+      credEl.textContent = state.credits;
+      waveEl.textContent = state.wave;
+      dmgEl.textContent = state.damage;
+      rateEl.textContent = `${state.fireRate.toFixed(1)}/s`;
+      turEl.textContent = state.turrets.length;
+      el('zombies').textContent = state.enemies.length;
+      el('canonCost').textContent = `Kosten: ${state.costs.canon}`;
+      el('turretCost').textContent = `Kosten: ${state.costs.turret}`;
+      el('dmgCost').textContent = `Kosten: ${state.costs.dmg}`;
+      el('rateCost').textContent = `Kosten: ${state.costs.rate}`;
+      el('buildGatling').disabled = state.credits < state.costs.turret;
+      el('buildCanon').disabled = state.credits < state.costs.canon;
+      el('upgradeDmg').disabled = state.credits < state.costs.dmg;
+      el('upgradeRate').disabled = state.credits < state.costs.rate || state.fireRate>=16;
+
+    }
+
+    // --- Benachrichtigungen ---
+    const notificationsEl = document.getElementById('notifications');
+    function showNotification(message, duration = 2000, type = 'info') {
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.classList.add('notification');
+      if (type === 'info') {
+        notification.classList.add('info');
+      }
+      
+      notificationsEl.appendChild(notification);
+
+      setTimeout(() => {
+          notification.classList.add('fade-out');
+          setTimeout(() => {
+              notificationsEl.removeChild(notification);
+          }, 500); // Warte auf die Fade-Out-Animation
+      }, duration);
+    }
+
+    // --- Schadens-Effekt ---
+    const damageVignetteEl = document.getElementById('damage-vignette');
+    let damageTimeout;
+    function showDamageEffect() {
+      if (damageTimeout) clearTimeout(damageTimeout);
+      damageVignetteEl.style.opacity = '1';
+      damageTimeout = setTimeout(() => {
+        damageVignetteEl.style.opacity = '0';
+      }, 120); // Dauer des Effekts in ms
+    }
+
+    // --- Toon Zombie Materialien ---
+    function toonMat(hex) {
+      const c = new THREE.Color(hex);
+      const m = new THREE.MeshToonMaterial({ color: c, gradientMap: null });
+      m.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <tonemapping_fragment>',
+          `
+          float l = clamp( dot( normalize( vViewPosition ), vec3(0.0,0.0,1.0) ) * -1.0, 0.0, 1.0 );
+          float stepL = l < 0.33 ? 0.15 : (l < 0.66 ? 0.55 : 0.95);
+          gl_FragColor = vec4( outgoingLight * stepL, diffuseColor.a );
+          #include <tonemapping_fragment>
+          `
+        );
+      };
+      return m;
+    }
+
+    // Warte, bis alle Modelle geladen sind, bevor der Start-Button aktiviert wird.
+    const assetCheckInterval = setInterval(() => {
+      if (Zombie.isReady() && Turret.isReady() && CanonTurret.isReady()) { // Check all models
+        diag.textContent = 'Engine geladen – bereit.';
+        startBtn.disabled = false;
+        clearInterval(assetCheckInterval);
+      }
+    }, 100);
+
+    // Hilfsobjekt für die Turm-Zielberechnung
+    const worldLookAtHelper = new THREE.Object3D();
+
+    // --- Weapon System ---
+    const weaponSystem = new WeaponSystem(scene, camera, state, {
+      updateHUD,
+      showHitmarker: (isHeadshot) => {
+        if (hitmarkerEl) { if (isHeadshot) hitmarkerEl.classList.add('headshot'); hitmarkerEl.classList.add('active'); setTimeout(() => { hitmarkerEl.classList.remove('active', 'headshot'); }, 120); }
+      }
+    });
+    // --- Player Controller ---
+    const playerController = new PlayerController(camera, controls, state, worldBVH, {
+      placeTurret,
+      togglePause,
+      restart,
+      updateHUD,
+      showNotification
+    });
+    // Wir müssen dem Controller das BVH übergeben, sobald es geladen ist.
+
+    // --- Wave Manager ---
+    const waveManager = new WaveManager(state, spawnEnemy, showNotification);
+
+    function spawnEnemy(waveConfig, playerPosition){
+      if (!Zombie.isReady()) return;
+      const waveCfg = { ...waveConfig, wave: state.wave };
+      const zombie = new Zombie(scene, waveCfg, playerPosition, worldBVH);
+      state.enemies.push(zombie);
+    }
+
+    function enemyAI(dt){
+      for (let i=state.enemies.length-1;i>=0;i--){
+        const e = state.enemies[i];
+        e.update(dt, state.player.position, worldBVH);
+
+        // Zombies, die tot sind, nach einer Verzögerung entfernen
+        if (e.isDead) {
+          e.dispose();
+          state.enemies.splice(i, 1);
+          continue;
+        }
+
+        // Sterbende Zombies können nicht mehr angreifen.
+        if (e.isDying) continue;
+
+        // Berechne die 3D-Distanz für den Angriff, um Angriffe durch den Boden zu verhindern.
+        const playerPos = state.player.position;
+        // OPTIMIERUNG: distanceToSquared ist schneller als distanceTo für Reichweiten-Checks.
+        const attackDistanceSq = playerPos.distanceToSquared(e.model.position);
+
+        if (attackDistanceSq < 1.5 * 1.5){ // Prüfe die tatsächliche 3D-Reichweite (1.5^2 = 2.25)
+          state.hp -= 15*dt;
+          showDamageEffect(); // Visuelles Feedback für Schaden
+          if (state.hp<=0){ gameOver(); } 
+        }
+      }
+    }
+
+    // --- Shooting (Raycaster) ---
+    const raycaster = new THREE.Raycaster(); // Wird noch für Turm-Platzierung gebraucht
+
+    function placeTurret(type){
+      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+      const hits = worldBVH ? [worldBVH.raycastFirst(raycaster.ray)].filter(h => h) : []; // Nutze BVH
+      if (!hits.length) return; // Nichts getroffen
+      const hit = hits[0];
+      let t = null;
+      const callbacks = { spawnProjectile: weaponSystem.spawnProjectile.bind(weaponSystem) };
+
+      if (type === 'gatling') {
+        t = new Turret(scene, hit.point, state, callbacks);
+      } else if (type === 'canon') {
+        t = new CanonTurret(scene, hit.point, state, callbacks);
+      }
+
+      if (t) { // Nur fortfahren, wenn der Turm erfolgreich erstellt wurde
+        state.turrets.push(t);
+        updateHUD(); // HUD nach dem Hinzufügen aktualisieren
+      }
+    }
+
+    function turretsAct(dt) {
+      for (const t of state.turrets) {
+        t.update(dt, state.enemies, worldBVH);
+      }
+    }
+    
+    // --- Movement/Collision ---
+    const keys = Object.create(null);
+
+    const PLAYER_RADIUS = 0.4;
+    function isColliding(pos) {
+      const checkDirections = [ new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0), new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1) ];
+      for (const dir of checkDirections) { // Prüft jetzt in die korrekten, relativen Richtungen
+        raycaster.set(pos, dir); // Raycaster neu setzen
+        const hit = worldBVH ? worldBVH.raycastFirst(raycaster.ray) : null;
+        if (hit && hit.distance < PLAYER_RADIUS) {
+          return true; // Kollision, wenn eine Wand näher als der Spielerradius ist.
+        }
+      }
+      return false;
+    }
+
+    // --- Pointer Lock ---
+    startBtn.addEventListener('click', () => { controls.lock(); });
+    controls.addEventListener('lock',   () => { overlay.classList.add('hide'); state.running = true; state.player.position.copy(spawnPos); });
+    controls.addEventListener('unlock', () => { overlay.classList.remove('hide'); state.running = false; });
+
+    // Buttons (optisch; Shop ist per Tasten gesteuert)
+    el('pauseBtn').onclick = ()=> togglePause();
+    el('restartBtn').onclick = ()=> restart();
+
+    // Debug key to spawn zombies
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'F11') {
+        e.preventDefault(); // Prevent default browser action for F11 (fullscreen)
+        if (!state.running || state.gameOver || !worldBVH) return;
+
+        console.log("Spawning 20 debug zombies...");
+        const playerPos = state.player.position;
+        const waveConfig = waveManager.getWaveConfig(Math.max(1, state.wave));
+        for (let i = 0; i < 20; i++) {
+          spawnEnemy(waveConfig, playerPos);
+        }
+        showNotification("20 debug zombies spawned!", 2000);
+      }
+    });
+
+    function togglePause(){ state.running = !state.running; overlay.classList.toggle('hide', state.running); }
+    function gameOver(){ state.gameOver=true; state.running=false; overlay.classList.remove('hide'); overlay.querySelector('h1').textContent='Game Over'; }
+    function restart(){
+      for (const e of state.enemies) e.dispose();
+      for (const t of state.turrets) t.dispose();
+      state.turrets.length=0;
+      state.enemies.length = 0;
+      Object.assign(state, { running:true, gameOver:false, hp:100, credits:0, wave:0, time:0, damage:10, fireRate:6, lastShot:0, enemies:[], turrets:[], projectiles:[], costs:{turret:0, canon: 250, dmg:80,rate:90}, speed:10, friction:10, vel:new THREE.Vector3(), waveInProgress: false, timeUntilNextWave: 5, timeUntilAmbientSpawn: 15 });
+      state.player.position.copy(spawnPos);
+      overlay.classList.add('hide');
+      updateHUD();
+    }
+
+    // --- Resize ---
+    addEventListener('resize', ()=>{ camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+    // --- Self-Tests ---
+    const results = []; const ok = (name, cond) => results.push({ name, ok: !!cond });
+    ok('THREE vorhanden', !!THREE.WebGLRenderer);
+    ok('PointerLockControls vorhanden', typeof PointerLockControls === 'function');
+    ok('Helligkeit (exposure)', renderer.toneMappingExposure >= 1.6);
+
+    // --- Loop ---
+    let last = performance.now();
+    function loop(now){
+      const dt = Math.min(0.033, (now-last)/1000); last = now;
+      if (worldBVH && !playerController.worldBVH) playerController.worldBVH = worldBVH;
+      if (state.running && !state.gameOver){
+        state.time += dt;
+        playerController.update(dt);
+        if (state._shootHeld) weaponSystem.shoot(weaponMuzzle);
+        waveManager.update(dt);
+        enemyAI(dt);
+        turretsAct(dt);
+        updateHUD();
+      }
+      weaponSystem.update(dt);
+      renderer.render(scene, camera);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // Init HUD
+    updateHUD();
+  </script>
+</body>
+</html>

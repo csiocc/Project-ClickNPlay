@@ -1,0 +1,8 @@
+Model Information:
+* title:	City of the Sky
+* source:	https://sketchfab.com/3d-models/city-of-the-sky-c9279438c22f489bab34b32287f2032c
+* author:	katydid (https://sketchfab.com/Katydid.)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

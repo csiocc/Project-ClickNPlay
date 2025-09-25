@@ -1,0 +1,11 @@
+Model Information:
+* title:	Gatling turret- stylized
+* source:	https://sketchfab.com/3d-models/gatling-turret-stylized-bf16680ac4824613beb6b8e8fbc924e4
+* author:	the9thearl (https://sketchfab.com/the9thearl)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Gatling turret- stylized" (https://sketchfab.com/3d-models/gatling-turret-stylized-bf16680ac4824613beb6b8e8fbc924e4) by the9thearl (https://sketchfab.com/the9thearl) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
