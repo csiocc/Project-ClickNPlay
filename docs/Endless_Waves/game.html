@@ -339,6 +339,33 @@
 
     let spawnPos = new THREE.Vector3(0, CAMERA_HEIGHT, 5); // Fallback-Spawn, wird überschrieben
 
+    // --- Zentrale Spielkonfiguration ---
+    const GAME_CONFIG = {
+        player: {
+            initialHp: 100,
+            speed: 10,
+            jumpVelocity: 6,
+        },
+        weapon: {
+            initialDamage: 10,
+            initialFireRate: 6,
+            initialAmmo: 30,
+            initialMaxAmmo: 30,
+            recoilKick: 0.3,
+            recoilSide: 0.01,
+            recoilSpeed: 25,
+            recoilRecovery: 10,
+        },
+        costs: {
+            turret: 150,
+            canon: 250,
+            heal: 100,
+            dmg: 80,
+            rate: 90,
+            ammo: 100,
+        }
+    };
+
     // --- State & HUD ---
     const el = (id)=>document.getElementById(id);
     const state = {
@@ -347,13 +374,20 @@
       ammo: 30, maxAmmo: 30,
       enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, heal: 100, dmg:80, rate:90, ammo: 100 },
       speed:10, friction:10, vel:new THREE.Vector3(),
+      running:false, gameOver:false, hp: GAME_CONFIG.player.initialHp, credits:0, wave:0, time:0,
+      damage: GAME_CONFIG.weapon.initialDamage, fireRate: GAME_CONFIG.weapon.initialFireRate, lastShot:0,
+      ammo: GAME_CONFIG.weapon.initialAmmo, maxAmmo: GAME_CONFIG.weapon.initialMaxAmmo, reloading: false,
+      enemies:[], turrets:[], projectiles:[], costs: { ...GAME_CONFIG.costs },
+      speed: GAME_CONFIG.player.speed, friction:10, vel:new THREE.Vector3(),
       waveInProgress: false, timeUntilNextWave: 5, onGround: true,
       timeUntilAmbientSpawn: 15, // Timer für zusätzliche Zombies
       recoil: {
         current: new THREE.Vector2(0, 0), // x = pitch, y = yaw
         target: new THREE.Vector2(0, 0),
         speed: 25, // Wie schnell der Rückstoss "eintritt"
-        recovery: 10 // Wie schnell er sich erholt
+        recovery: 10, // Wie schnell er sich erholt
+        speed: GAME_CONFIG.weapon.recoilSpeed,
+        recovery: GAME_CONFIG.weapon.recoilRecovery
       }
     };
     const hpEl=el('hp'), credEl=el('credits'), waveEl=el('wave'), dmgEl=el('dmg'), rateEl=el('rate'), turEl=el('turrets'), ammoEl=el('ammo');
@@ -436,14 +470,37 @@
       return m;
     }
 
-    // Warte, bis alle Modelle geladen sind, bevor der Start-Button aktiviert wird.
-    const assetCheckInterval = setInterval(() => {
-      if (Zombie.isReady() && Turret.isReady() && CanonTurret.isReady()) { // Check all models
+    // Neue Funktion zum Vorwärmen der Assets
+    async function prewarmAssets() {
+        diag.textContent = 'Wärme Assets vor...';
+
+        // Warten, bis alle Modelle geladen sind
+        await new Promise(resolve => {
+            const assetCheckInterval = setInterval(() => {
+                if (Zombie.isReady() && Turret.isReady() && CanonTurret.isReady()) {
+                    clearInterval(assetCheckInterval);
+                    resolve();
+                }
+            }, 100);
+        });
+
+        // Erstelle je eine Instanz jedes Objekts, das laggen könnte
+        const dummyGatling = new Turret(scene, new THREE.Vector3(0, -1000, 0), state, {});
+        const dummyCanon = new CanonTurret(scene, new THREE.Vector3(0, -1000, 0), state, {});
+        
+        // Rendere die Szene einmal, um die Shader zu kompilieren
+        renderer.render(scene, camera);
+
+        // Entferne die Dummy-Objekte sofort wieder
+        dummyGatling.dispose();
+        dummyCanon.dispose();
+
         diag.textContent = 'Engine geladen – bereit.';
         startBtn.disabled = false;
-        clearInterval(assetCheckInterval);
-      }
-    }, 100);
+    }
+
+    // Warte, bis alle Modelle geladen sind, bevor der Start-Button aktiviert wird.
+    prewarmAssets();
 
     // Hilfsobjekt für die Turm-Zielberechnung
     const worldLookAtHelper = new THREE.Object3D();
@@ -590,6 +647,20 @@
       state.turrets.length=0;
       state.enemies.length = 0;
       Object.assign(state, { running:true, gameOver:false, hp:100, credits:0, wave:0, time:0, damage:10, fireRate:6, lastShot:0, enemies:[], turrets:[], projectiles:[], costs:{turret:0, canon: 250, heal: 100, dmg:80,rate:90}, speed:10, friction:10, vel:new THREE.Vector3(), waveInProgress: false, timeUntilNextWave: 5, timeUntilAmbientSpawn: 15 });
+      state.enemies.length = 0; state.projectiles.length = 0;
+      
+      // Zustand sauber vom Config-Objekt zurücksetzen
+      Object.assign(state, { 
+        running:true, gameOver:false, hp: GAME_CONFIG.player.initialHp, credits:0, wave:0, time:0, 
+        damage: GAME_CONFIG.weapon.initialDamage, fireRate: GAME_CONFIG.weapon.initialFireRate, lastShot:0, 
+        ammo: GAME_CONFIG.weapon.initialAmmo, maxAmmo: GAME_CONFIG.weapon.initialMaxAmmo, reloading: false,
+        costs: { ...GAME_CONFIG.costs },
+        speed: GAME_CONFIG.player.speed,
+        waveInProgress: false, timeUntilNextWave: 5, timeUntilAmbientSpawn: 15 
+      });
+      state.recoil.current.set(0,0);
+      state.recoil.target.set(0,0);
+
       state.player.position.copy(spawnPos);
       overlay.classList.add('hide');
       updateHUD();

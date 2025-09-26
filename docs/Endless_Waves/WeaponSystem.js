@@ -37,6 +37,7 @@ export class WeaponSystem {
 
         // Rückstoss auslösen
         this.state.recoil.target.x += 0.3; // Vertikaler Kick (doppelt so stark)
+        this.state.recoil.target.x += 0.3; // Vertikaler Kick
         this.state.recoil.target.y += (Math.random() - 0.5) * 0.01; // Leichter horizontaler Kick
 
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
@@ -70,7 +71,7 @@ export class WeaponSystem {
             this.callbacks.showHitmarker(isHeadshot);
         } else {
             // Wenn nichts getroffen wird, zielen wir auf einen Punkt 200 Einheiten entfernt
-            targetPoint = this.raycaster.ray.at(200, new THREE.Vector3());
+            targetPoint = this.raycaster.ray.at(100, new THREE.Vector3());
         }
 
         // Projektil-Effekt

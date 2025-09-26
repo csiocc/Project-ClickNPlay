@@ -77,7 +77,8 @@ export class PlayerController {
                 if (this.state.credits >= this.state.costs.dmg) {
                     this.state.credits -= this.state.costs.dmg;
                     this.state.damage += 5;
-                    this.state.costs.dmg = Math.floor(this.state.costs.dmg * 1.55 + 10);
+                    this.state.recoil.recovery = Math.min(25, this.state.recoil.recovery + 1.5); // Improve recoil recovery
+                    this.state.costs.dmg = Math.floor(this.state.costs.dmg * 1.55 + 15);
                     this.callbacks.showNotification(`Schaden erhöht auf ${this.state.damage}!`, 1500, 'info');
                     this.callbacks.updateHUD();
                 }
@@ -86,7 +87,8 @@ export class PlayerController {
                 if (this.state.credits >= this.state.costs.rate && this.state.fireRate < 16) {
                     this.state.credits -= this.state.costs.rate;
                     this.state.fireRate = Math.min(16, this.state.fireRate + 1);
-                    this.state.costs.rate = Math.floor(this.state.costs.rate * 1.6 + 10);
+                    this.state.recoil.speed = Math.min(40, this.state.recoil.speed + 2.0); // Improve recoil speed
+                    this.state.costs.rate = Math.floor(this.state.costs.rate * 1.6 + 15);
                     this.callbacks.showNotification(`Feuerrate erhöht auf ${this.state.fireRate.toFixed(1)}/s!`, 1500, 'info');
                     this.callbacks.updateHUD();
                 }
