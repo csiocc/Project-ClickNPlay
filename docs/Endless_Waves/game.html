@@ -371,7 +371,7 @@
       dmgEl.textContent = state.damage;
       rateEl.textContent = `${state.fireRate.toFixed(1)}/s`;
       turEl.textContent = state.turrets.length;
-      el('zombies').textContent = state.enemies.length;
+      el('zombies').textContent = state.enemies.filter(e => !e.isDying).length;
       el('canonCost').textContent = `Kosten: ${state.costs.canon}`;
       el('turretCost').textContent = `Kosten: ${state.costs.turret}`;
       el('healCost').textContent = `Kosten: ${state.costs.heal}`;

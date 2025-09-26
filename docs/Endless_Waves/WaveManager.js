@@ -18,16 +18,16 @@ export class WaveManager {
 
         // Verteilung der Zombie-Typen
         if (wave < 5) { // Anfangsphasen: Hauptsächlich langsame
-            config.typeDistribution.run = 0.1;
+            config.typeDistribution.run = 0.2;
             config.typeDistribution.crawl = 0.3;
         } else if (wave < 20) { // Mittelphase: Ausgewogener Mix
-            config.typeDistribution.run = 0.25;
+            config.typeDistribution.run = 0.3;
             config.typeDistribution.crawl = 0.25;
         } else if (wave < 50) { // Spätphase: Mehr schnelle Gegner
-            config.typeDistribution.run = 0.4;
+            config.typeDistribution.run = 0.5;
             config.typeDistribution.crawl = 0.15;
         } else { // End-Game: Überwiegend schnelle und sehr schnelle
-            config.typeDistribution.run = 0.6;
+            config.typeDistribution.run = 0.7;
             config.typeDistribution.crawl = 0.1;
         }
         config.typeDistribution.walk = 1.0 - config.typeDistribution.run - config.typeDistribution.crawl;
@@ -43,6 +43,16 @@ export class WaveManager {
             setTimeout(() => {
                 this.spawnEnemy(waveConfig, playerPos);
             }, i * 200); // Spawne alle 200ms einen Zombie
+        }
+    }
+
+    cleanupZombies() {
+        for (let i = this.state.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.state.enemies[i];
+            if (enemy.model.position.y < -50) { // Zombie ist aus der Welt gefallen
+                enemy.dispose();
+                this.state.enemies.splice(i, 1);
+            }
         }
     }
 
@@ -75,5 +85,8 @@ export class WaveManager {
             }
             this.state.timeUntilAmbientSpawn = 15; // Timer zurücksetzen
         }
+
+        // Zombies aufräumen, die aus der Welt gefallen sind
+        this.cleanupZombies();
     }
 }

@@ -44,13 +44,16 @@ export class WeaponSystem {
         const allHitboxes = this.state.enemies.flatMap(e => e.hitboxes);
         const hits = this.raycaster.intersectObjects(allHitboxes);
 
+        let targetPoint;
         if (hits.length > 0) {
             const hit = hits[0];
             const hitObject = hit.object;
             const zombie = hitObject.userData.parentInstance;
             const point = hit.point;
+            targetPoint = point.clone();
 
             if (!zombie) return;
+
 
             const isHeadshot = hitObject.userData.isHead === true;
             const damage = isHeadshot ? this.state.damage * 2 : this.state.damage;
@@ -65,16 +68,20 @@ export class WeaponSystem {
                 this.state.credits += Math.floor(10 + Math.random() * 5) + Math.floor(this.state.wave * 2);
             }
             this.callbacks.showHitmarker(isHeadshot);
+        } else {
+            // Wenn nichts getroffen wird, zielen wir auf einen Punkt 200 Einheiten entfernt
+            targetPoint = this.raycaster.ray.at(200, new THREE.Vector3());
         }
 
         // Projektil-Effekt
         const muzzleWorldPos = new THREE.Vector3();
         weaponMuzzle.getWorldPosition(muzzleWorldPos);
-        const projectileDir = new THREE.Vector3().subVectors(this.raycaster.ray.at(100, new THREE.Vector3()), muzzleWorldPos).normalize();
+        const projectileDir = new THREE.Vector3().subVectors(targetPoint, muzzleWorldPos).normalize();
+        
         this.spawnProjectile({
             pos: muzzleWorldPos,
-            dir: projectileDir,
-            damage: 0, // Spieler-Raycast macht den Schaden, nicht das Projektil
+            dir: projectileDir, // Richtung vom Lauf zum Zielpunkt
+            damage: 0, // Spieler-Raycast macht den Schaden
             speed: 120,
             life: 0.8,
             size: 0.04,
