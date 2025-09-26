@@ -286,15 +286,72 @@ document.addEventListener('DOMContentLoaded', () => {
     class AI {
         constructor() {
             this.pieceValues = {pawn:10,knight:30,bishop:30,rook:50,queen:90,king:900};
+            // Piece-Square Tables: Boni/Mali für die Position jeder Figur
+            // Werte sind aus der Perspektive von Weiss. Für Schwarz werden sie gespiegelt.
+            this.pst = {
+                pawn: [
+                    [0,  0,  0,  0,  0,  0,  0,  0],
+                    [50, 50, 50, 50, 50, 50, 50, 50],
+                    [10, 10, 20, 30, 30, 20, 10, 10],
+                    [5,  5, 10, 25, 25, 10,  5,  5],
+                    [0,  0,  0, 20, 20,  0,  0,  0],
+                    [5, -5,-10,  0,  0,-10, -5,  5],
+                    [5, 10, 10,-20,-20, 10, 10,  5],
+                    [0,  0,  0,  0,  0,  0,  0,  0]
+                ],
+                knight: [
+                    [-50,-40,-30,-30,-30,-30,-40,-50],
+                    [-40,-20,  0,  0,  0,  0,-20,-40],
+                    [-30,  0, 10, 15, 15, 10,  0,-30],
+                    [-30,  5, 15, 20, 20, 15,  5,-30],
+                    [-30,  0, 15, 20, 20, 15,  0,-30],
+                    [-30,  5, 10, 15, 15, 10,  5,-30],
+                    [-40,-20,  0,  5,  5,  0,-20,-40],
+                    [-50,-40,-30,-30,-30,-30,-40,-50]
+                ],
+                bishop: [
+                    [-20,-10,-10,-10,-10,-10,-10,-20],
+                    [-10,  0,  0,  0,  0,  0,  0,-10],
+                    [-10,  0,  5, 10, 10,  5,  0,-10],
+                    [-10,  5,  5, 10, 10,  5,  5,-10],
+                    [-10,  0, 10, 10, 10, 10,  0,-10],
+                    [-10, 10, 10, 10, 10, 10, 10,-10],
+                    [-10,  5,  0,  0,  0,  0,  5,-10],
+                    [-20,-10,-10,-10,-10,-10,-10,-20]
+                ],
+                rook: [
+                    [0,  0,  0,  0,  0,  0,  0,  0],
+                    [5, 10, 10, 10, 10, 10, 10,  5],
+                    [-5,  0,  0,  0,  0,  0,  0, -5],
+                    [-5,  0,  0,  0,  0,  0,  0, -5],
+                    [-5,  0,  0,  0,  0,  0,  0, -5],
+                    [-5,  0,  0,  0,  0,  0,  0, -5],
+                    [-5,  0,  0,  0,  0,  0,  0, -5],
+                    [0,  0,  0,  5,  5,  0,  0,  0]
+                ],
+                queen: [
+                    [-20,-10,-10, -5, -5,-10,-10,-20],
+                    [-10,  0,  0,  0,  0,  0,  0,-10],
+                    [-10,  0,  5,  5,  5,  5,  0,-10],
+                    [-5,  0,  5,  5,  5,  5,  0, -5],
+                    [0,  0,  5,  5,  5,  5,  0, -5],
+                    [-10,  5,  5,  5,  5,  5,  0,-10],
+                    [-10,  0,  5,  0,  0,  0,  0,-10],
+                    [-20,-10,-10, -5, -5,-10,-10,-20]
+                ]
+            };
         }
         evaluateBoard(board) {
             let score=0;
             for (let i=0;i<8;i++) {
                 for (let j=0;j<8;j++) {
                     const p = board.getTile(i,j).piece;
-                    if (p) {
-                        const v = this.pieceValues[p.constructor.name.toLowerCase()]||0;
-                        score += p.color==='white'?v:-v;
+                    if (p) { // Materialwert + Positionswert
+                        const pieceName = p.constructor.name.toLowerCase();
+                        const materialValue = this.pieceValues[pieceName] || 0;
+                        const positionValue = this.pst[pieceName] ? (p.color === 'white' ? this.pst[pieceName][i][j] : this.pst[pieceName][7-i][j]) : 0;
+                        const totalValue = materialValue + (positionValue / 10); // Positionswert leicht gewichtet
+                        score += p.color === 'white' ? totalValue : -totalValue;
                     }
                 }
             }
@@ -321,14 +378,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         getBestMove(board) {
             const moves=this.getAllMoves(board,'black');
-            let best=null, bestVal=Infinity;
+            if (moves.length === 0) return null;
+
+            let bestMoves = [];
+            let bestVal = Infinity;
+
             for (const m of moves) {
                 const moveData=board.movePiece(m);
                 const val=this.evaluateBoard(board);
                 board.unmakeMove(moveData);
-                if (val<bestVal) {bestVal=val;best=m;}
+                if (val < bestVal) {
+                    bestVal = val;
+                    bestMoves = [m];
+                } else if (val === bestVal) {
+                    bestMoves.push(m);
+                }
             }
-            return best;
+            // Wähle einen zufälligen Zug aus den besten Zügen
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
         }
         makeMove(board) {
             if (gameOver) return;
