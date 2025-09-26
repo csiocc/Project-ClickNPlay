@@ -34,12 +34,18 @@ export class PlayerController {
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
             if (e.code === 'KeyP') this.callbacks.togglePause();
-            if (e.code === 'KeyR') this.callbacks.restart();
+            if (e.code === 'KeyR' && e.ctrlKey) this.callbacks.restart(); // Ctrl+R für Neustart
             if (e.code === 'F12') {
                 e.preventDefault();
                 this.state.credits += 99999;
                 this.callbacks.showNotification("Cheat aktiviert: +99999 Credits!", 2000, 'info');
                 this.callbacks.updateHUD();
+            }
+
+            // Nachladen
+            if (e.code === 'KeyR' && !e.ctrlKey) {
+                this.callbacks.reloadWeapon();
+                e.preventDefault();
             }
 
             // Shop-Logik
@@ -85,6 +91,15 @@ export class PlayerController {
                     this.callbacks.updateHUD();
                 }
             }
+            if (e.code === 'Digit6') { // Munition upgraden
+                if (this.state.credits >= this.state.costs.ammo) {
+                    this.state.credits -= this.state.costs.ammo;
+                    this.state.maxAmmo += 10;
+                    this.state.costs.ammo = Math.floor(this.state.costs.ammo * 1.25 + 25);
+                    this.callbacks.showNotification(`Max. Munition erhöht auf ${this.state.maxAmmo}!`, 1500, 'info');
+                    this.callbacks.updateHUD();
+                }
+            }
 
             if (e.code === 'KeyT') { // 'T' is also for Gatling
                 if (this.state.credits >= this.state.costs.turret) {
@@ -100,7 +115,7 @@ export class PlayerController {
                 this.state.vel.y = 6; // Sprunghöhe/-kraft
                 this.state.onGround = false;
             }
-            if (this.state.running && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Space'].includes(e.code)) {
+            if (this.state.running && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Space'].includes(e.code)) {
                 e.preventDefault();
             }
         });

@@ -21,8 +21,19 @@ export class WeaponSystem {
     shoot(weaponMuzzle) {
         const now = performance.now();
         const interval = 1000 / this.state.fireRate;
+
+        if (this.state.reloading) return;
         if (now - this.state.lastShot < interval) return;
+
+        if (this.state.ammo <= 0) {
+            if (!this.state.reloading) {
+                this.reload();
+            }
+            return;
+        }
+
         this.state.lastShot = now;
+        this.state.ammo--;
 
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
@@ -69,6 +80,21 @@ export class WeaponSystem {
 
         this.muzzleFlash(weaponMuzzle);
         this.callbacks.updateHUD();
+    }
+
+    reload() {
+        if (this.state.reloading || this.state.ammo === this.state.maxAmmo) {
+            return;
+        }
+        this.state.reloading = true;
+        this.callbacks.showNotification("Lade nach...", 1500);
+
+        // Hier könnte man eine Nachlade-Animation starten
+        setTimeout(() => {
+            this.state.ammo = this.state.maxAmmo;
+            this.state.reloading = false;
+            this.callbacks.updateHUD();
+        }, 1500); // 1.5 Sekunden Nachladezeit
     }
 
     muzzleFlash(weaponMuzzle) {

@@ -69,6 +69,30 @@
     .notification.info { background: #27ae60cc; }
     .notification.fade-out { opacity: 0; transform: translateY(-20px); }
   </style>
+  <style>
+    /* Eigene Stile für die neue Munitionsanzeige */
+    #ammo-container {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      align-items: flex-end;
+      gap: 15px;
+      color: #e6edf3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      text-shadow: 0 0 8px #000c;
+    }
+    #ammo-count {
+      font-size: 3.5rem; /* Schön gross */
+      font-weight: 700;
+      line-height: 1;
+    }
+    #ammo-max {
+      font-size: 1.5rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+  </style>
   <script type="importmap">
   {
     "imports": {
@@ -151,7 +175,16 @@
             <div class="icon">⚡</div>
             <div class="details"><span class="title"><span class="keycap">5</span>Feuerrate</span><span class="desc">+1/s</span><span class="cost" id="rateCost">Kosten: 90</span></div>
         </div>
+        <div class="build-item" id="upgradeAmmo">
+            <div class="icon">➕</div>
+            <div class="details"><span class="title"><span class="keycap">6</span>Munition</span><span class="desc">+10 Max. Ammo</span><span class="cost" id="ammoCost">Kosten: 100</span></div>
+        </div>
     </div>
+  </div>
+  
+  <div id="ammo-container">
+    <span id="ammo-count">30</span>
+    <span id="ammo-max">/ 30</span>
   </div>
 
   <script type="module">
@@ -206,7 +239,7 @@
             }
           });
           // Position, Rotation und Skalierung anpassen, damit es gut in der Ego-Perspektive aussieht
-          weapon.position.set(0.25, -0.4, -0.8);
+          weapon.position.set(0.25, -0.42, -0.9);
           weapon.rotation.y = Math.PI; // Waffe um 180 Grad drehen
           weapon.scale.set(0.7, 0.7, 0.7);
           weaponMuzzle.position.set(0, 0.05, 0.7); // Mündungsposition an das Ende des Laufs verschoben
@@ -310,12 +343,14 @@
     const state = {
       running:false, gameOver:false, hp:100, credits:0, wave:0, time:0,
       damage:10, fireRate:6, lastShot:0,
-      enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, heal: 100, dmg:80, rate:90 },
+      ammo: 30, maxAmmo: 30,
+      enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, heal: 100, dmg:80, rate:90, ammo: 100 },
       speed:10, friction:10, vel:new THREE.Vector3(),
       waveInProgress: false, timeUntilNextWave: 5, onGround: true,
       timeUntilAmbientSpawn: 15, // Timer für zusätzliche Zombies
     };
-    const hpEl=el('hp'), credEl=el('credits'), waveEl=el('wave'), dmgEl=el('dmg'), rateEl=el('rate'), turEl=el('turrets');
+    const hpEl=el('hp'), credEl=el('credits'), waveEl=el('wave'), dmgEl=el('dmg'), rateEl=el('rate'), turEl=el('turrets'), ammoEl=el('ammo');
+    const ammoCountEl = el('ammo-count'), ammoMaxEl = el('ammo-max');
     state.player = controls.getObject(); // Spielerobjekt im State verfügbar machen
     state._shootHeld = false; // Zustand für gehaltene Maustaste
     const waveInfoEl = el('wave-info');
@@ -323,7 +358,9 @@
     function updateHUD(){
       hpEl.textContent = Math.max(0, Math.ceil(state.hp));
       credEl.textContent = state.credits;
-      waveEl.textContent = state.wave;
+      waveEl.textContent = state.wave;      
+      ammoCountEl.textContent = state.ammo;
+      ammoMaxEl.textContent = `/ ${state.maxAmmo}`;
       dmgEl.textContent = state.damage;
       rateEl.textContent = `${state.fireRate.toFixed(1)}/s`;
       turEl.textContent = state.turrets.length;
@@ -333,11 +370,13 @@
       el('healCost').textContent = `Kosten: ${state.costs.heal}`;
       el('dmgCost').textContent = `Kosten: ${state.costs.dmg}`;
       el('rateCost').textContent = `Kosten: ${state.costs.rate}`;
+      el('ammoCost').textContent = `Kosten: ${state.costs.ammo}`;
       el('buildGatling').disabled = state.credits < state.costs.turret;
       el('buyHeal').disabled = state.credits < state.costs.heal || state.hp >= 100;
       el('buildCanon').disabled = state.credits < state.costs.canon;
       el('upgradeDmg').disabled = state.credits < state.costs.dmg;
       el('upgradeRate').disabled = state.credits < state.costs.rate || state.fireRate>=16;
+      el('upgradeAmmo').disabled = state.credits < state.costs.ammo;
 
     }
 
@@ -407,7 +446,8 @@
       updateHUD,
       showHitmarker: (isHeadshot) => {
         if (hitmarkerEl) { if (isHeadshot) hitmarkerEl.classList.add('headshot'); hitmarkerEl.classList.add('active'); setTimeout(() => { hitmarkerEl.classList.remove('active', 'headshot'); }, 120); }
-      }
+      },
+      showNotification
     });
     // --- Player Controller ---
     const playerController = new PlayerController(camera, controls, state, worldBVH, {
@@ -415,7 +455,8 @@
       togglePause,
       restart,
       updateHUD,
-      showNotification
+      showNotification,
+      reloadWeapon: () => weaponSystem.reload() // Hier wird die Verbindung hergestellt
     });
     // Wir müssen dem Controller das BVH übergeben, sobald es geladen ist.
 
