@@ -96,7 +96,7 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",      
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
       "GLTFLoader": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js",
       "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.0/build/index.module.js",
@@ -106,7 +106,8 @@
       "WaveManager": "./WaveManager.js",
       "PlayerController": "./PlayerController.js",
       "WeaponSystem": "./WeaponSystem.js",
-      "CanonTurret": "./CanonTurret.js"
+      "CanonTurret": "./CanonTurret.js",
+      "PointerLockControls": "./PointerLockControls.js"
     }
   }
   </script>
@@ -189,7 +190,7 @@
 
   <script type="module">
     import * as THREE from 'three';
-    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+    import { PointerLockControls } from 'PointerLockControls';
     import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { MeshBVH } from 'three-mesh-bvh';
@@ -348,6 +349,12 @@
       speed:10, friction:10, vel:new THREE.Vector3(),
       waveInProgress: false, timeUntilNextWave: 5, onGround: true,
       timeUntilAmbientSpawn: 15, // Timer für zusätzliche Zombies
+      recoil: {
+        current: new THREE.Vector2(0, 0), // x = pitch, y = yaw
+        target: new THREE.Vector2(0, 0),
+        speed: 25, // Wie schnell der Rückstoss "eintritt"
+        recovery: 10 // Wie schnell er sich erholt
+      }
     };
     const hpEl=el('hp'), credEl=el('credits'), waveEl=el('wave'), dmgEl=el('dmg'), rateEl=el('rate'), turEl=el('turrets'), ammoEl=el('ammo');
     const ammoCountEl = el('ammo-count'), ammoMaxEl = el('ammo-max');
@@ -604,6 +611,7 @@
       if (worldBVH && !playerController.worldBVH) playerController.worldBVH = worldBVH;
       if (state.running && !state.gameOver){
         state.time += dt;
+        controls.update(); // PointerLockControls aktualisieren
         playerController.update(dt);
         if (state._shootHeld) weaponSystem.shoot(weaponMuzzle);
         waveManager.update(dt);

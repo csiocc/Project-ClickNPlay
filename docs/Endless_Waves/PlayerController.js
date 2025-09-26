@@ -66,7 +66,7 @@ export class PlayerController {
                 }
             }
             if (e.code === 'Digit3') { // Heal-Pack kaufen
-                if (this.state.credits >= this.state.costs.heal && !this.callbacks.el('buyHeal').disabled) {
+                if (this.state.credits >= this.state.costs.heal && this.state.hp < 100) {
                     this.state.credits -= this.state.costs.heal;
                     this.state.hp = Math.min(100, this.state.hp + 50);
                     this.callbacks.showNotification("Heilung! +50 HP", 1500, 'info');
@@ -127,6 +127,22 @@ export class PlayerController {
 
     update(dt) {
         const obj = this.controls.getObject();
+
+        // --- Rückstoss-Logik ---
+        const recoil = this.state.recoil;
+        // Interpoliere den aktuellen Rückstoss zum Ziel
+        recoil.current.lerp(recoil.target, recoil.speed * dt);
+        // Wende den Rückstoss auf die Kamerarotation an
+        this.controls.setPitch(this.controls.getPitch() + recoil.current.x * dt); // Pitch (Vorzeichen korrigiert für Rückstoss nach oben)
+        this.controls.setYaw(this.controls.getYaw() - recoil.current.y * dt);     // Yaw
+        // Reduziere langsam das Rückstoss-Ziel zurück auf Null (Erholung)
+        recoil.target.lerp(new THREE.Vector2(0,0), recoil.recovery * dt);
+
+        // Visueller Waffenrückstoss (Bewegung des Modells)
+        const weapon = this.camera.getObjectByName('Rifle');
+        if (weapon) {
+            weapon.position.z = -0.9 + recoil.current.x * 2.5; // Waffe bewegt sich nach hinten
+        }
 
         // Schwerkraft und Bodenkollision
         this.state.vel.y -= 9.8 * dt * 2.5;

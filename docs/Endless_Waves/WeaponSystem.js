@@ -35,6 +35,10 @@ export class WeaponSystem {
         this.state.lastShot = now;
         this.state.ammo--;
 
+        // Rückstoss auslösen
+        this.state.recoil.target.x += 0.3; // Vertikaler Kick (doppelt so stark)
+        this.state.recoil.target.y += (Math.random() - 0.5) * 0.01; // Leichter horizontaler Kick
+
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
         const allHitboxes = this.state.enemies.flatMap(e => e.hitboxes);
