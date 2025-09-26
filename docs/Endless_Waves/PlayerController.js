@@ -51,7 +51,7 @@ export class PlayerController {
                     this.callbacks.updateHUD();
                 }
             }
-            if (e.code === 'Digit2') { // War vorher Digit4
+            if (e.code === 'Digit2') {
                 if (this.state.credits >= this.state.costs.canon) {
                     this.state.credits -= this.state.costs.canon;
                     this.callbacks.placeTurret('canon'); // Specify type
@@ -59,22 +59,29 @@ export class PlayerController {
                     this.callbacks.updateHUD();
                 }
             }
-            if (e.code === 'Digit3') { // War vorher Digit2
+            if (e.code === 'Digit3') { // Heal-Pack kaufen
+                if (this.state.credits >= this.state.costs.heal && !this.callbacks.el('buyHeal').disabled) {
+                    this.state.credits -= this.state.costs.heal;
+                    this.state.hp = Math.min(100, this.state.hp + 50);
+                    this.callbacks.showNotification("Heilung! +50 HP", 1500, 'info');
+                    this.callbacks.updateHUD();
+                }
+            }
+            if (e.code === 'Digit4') { // Schaden upgraden
                 if (this.state.credits >= this.state.costs.dmg) {
                     this.state.credits -= this.state.costs.dmg;
                     this.state.damage += 5;
                     this.state.costs.dmg = Math.floor(this.state.costs.dmg * 1.55 + 10);
-                    for (const t of this.state.turrets) {
-                        t.damage = Math.max(t.damage, Math.floor(this.state.damage * 0.6));
-                    }
+                    this.callbacks.showNotification(`Schaden erhöht auf ${this.state.damage}!`, 1500, 'info');
                     this.callbacks.updateHUD();
                 }
             }
-            if (e.code === 'Digit4') { // War vorher Digit3
+            if (e.code === 'Digit5') { // Feuerrate upgraden
                 if (this.state.credits >= this.state.costs.rate && this.state.fireRate < 16) {
                     this.state.credits -= this.state.costs.rate;
                     this.state.fireRate = Math.min(16, this.state.fireRate + 1);
                     this.state.costs.rate = Math.floor(this.state.costs.rate * 1.6 + 10);
+                    this.callbacks.showNotification(`Feuerrate erhöht auf ${this.state.fireRate.toFixed(1)}/s!`, 1500, 'info');
                     this.callbacks.updateHUD();
                 }
             }

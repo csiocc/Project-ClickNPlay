@@ -19,8 +19,8 @@
     .btn .label{ font-weight:700; }
     .btn .cost{ opacity:.8; }
     #shop .btn { pointer-events:none; } /* Kaufen nur per Tasten */
-
-    #build-menu { position:absolute; left:10px; bottom:10px; display:flex; gap:10px; pointer-events:auto; }
+    
+    #build-menu { position:absolute; left:10px; bottom:10px; display:flex; gap:10px; pointer-events:auto; flex-wrap: wrap; }
     .build-item { display:flex; gap:12px; align-items:center; width:220px; background:#0f172acc; border:1px solid #1f2937; border-radius:14px; padding:12px; pointer-events:none; /* Kaufen nur per Tasten */ }
     .build-item[disabled] { opacity:0.5; }
     .build-item .icon { font-size: 2.5rem; line-height: 1; }
@@ -130,11 +130,6 @@
       </div>
     </div>
 
-    <div id="shop">
-      <button class="btn" id="upgradeDmg"><span class="keycap">3</span><span class="label">💥 Schaden upgraden</span><span>+5 Schaden</span><span class="cost" id="dmgCost">Kosten: 80</span></button>
-      <button class="btn" id="upgradeRate"><span class="keycap">4</span><span class="label">⚡ Feuerrate upgraden</span><span>+1/s</span><span class="cost" id="rateCost">Kosten: 90</span></button>
-    </div>
-
     <div id="build-menu">
         <div class="build-item" id="buildGatling">
             <div class="icon">🛠️</div>
@@ -143,6 +138,18 @@
         <div class="build-item" id="buildCanon">
             <div class="icon">💣</div>
             <div class="details"><span class="title"><span class="keycap">2</span>Kanonenturm</span><span class="desc">Langsam, Flächenschaden</span><span class="cost" id="canonCost">Kosten: 250</span></div>
+        </div>
+        <div class="build-item" id="buyHeal">
+            <div class="icon">❤️‍🩹</div>
+            <div class="details"><span class="title"><span class="keycap">3</span>Heal-Pack</span><span class="desc">+50 HP</span><span class="cost" id="healCost">Kosten: 100</span></div>
+        </div>
+        <div class="build-item" id="upgradeDmg">
+            <div class="icon">💥</div>
+            <div class="details"><span class="title"><span class="keycap">4</span>Schaden</span><span class="desc">+5 Schaden</span><span class="cost" id="dmgCost">Kosten: 80</span></div>
+        </div>
+        <div class="build-item" id="upgradeRate">
+            <div class="icon">⚡</div>
+            <div class="details"><span class="title"><span class="keycap">5</span>Feuerrate</span><span class="desc">+1/s</span><span class="cost" id="rateCost">Kosten: 90</span></div>
         </div>
     </div>
   </div>
@@ -303,7 +310,7 @@
     const state = {
       running:false, gameOver:false, hp:100, credits:0, wave:0, time:0,
       damage:10, fireRate:6, lastShot:0,
-      enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, dmg:80, rate:90 },
+      enemies:[], turrets:[], projectiles:[], costs:{ turret:0, canon: 250, heal: 100, dmg:80, rate:90 },
       speed:10, friction:10, vel:new THREE.Vector3(),
       waveInProgress: false, timeUntilNextWave: 5, onGround: true,
       timeUntilAmbientSpawn: 15, // Timer für zusätzliche Zombies
@@ -323,9 +330,11 @@
       el('zombies').textContent = state.enemies.length;
       el('canonCost').textContent = `Kosten: ${state.costs.canon}`;
       el('turretCost').textContent = `Kosten: ${state.costs.turret}`;
+      el('healCost').textContent = `Kosten: ${state.costs.heal}`;
       el('dmgCost').textContent = `Kosten: ${state.costs.dmg}`;
       el('rateCost').textContent = `Kosten: ${state.costs.rate}`;
       el('buildGatling').disabled = state.credits < state.costs.turret;
+      el('buyHeal').disabled = state.credits < state.costs.heal || state.hp >= 100;
       el('buildCanon').disabled = state.credits < state.costs.canon;
       el('upgradeDmg').disabled = state.credits < state.costs.dmg;
       el('upgradeRate').disabled = state.credits < state.costs.rate || state.fireRate>=16;
@@ -422,29 +431,36 @@
 
     function enemyAI(dt){
       for (let i=state.enemies.length-1;i>=0;i--){
-        const e = state.enemies[i];
-        e.update(dt, state.player.position, worldBVH);
+        const zombie = state.enemies[i];
+        zombie.update(dt, state.player.position, worldBVH);
+
+        // Schadenslogik: Wenn der Zombie nahe genug ist, erleidet der Spieler Schaden.
+        // Dies muss VOR der Prüfung auf .isDying geschehen, damit ein umfallender Zombie noch Schaden machen kann.
+        const playerPos = state.player.position;
+        const zombiePos = zombie.model.position;
+
+        // Prüfe die horizontale und vertikale Distanz getrennt.
+        const dx = playerPos.x - zombiePos.x;
+        const dz = playerPos.z - zombiePos.z;
+        const dy = playerPos.y - zombiePos.y;
+        const horizontalDistanceSq = dx * dx + dz * dz;
+
+        // Reichweite: horizontal < 1.2 Einheiten, vertikal < 2.0 Einheiten.
+        if (horizontalDistanceSq < 1.2 * 1.2 && Math.abs(dy) < 2.0) {
+          state.hp -= 15*dt;
+          showDamageEffect(); // Visuelles Feedback für Schaden
+          if (state.hp <= 0) { gameOver(); }
+        }
 
         // Zombies, die tot sind, nach einer Verzögerung entfernen
-        if (e.isDead) {
-          e.dispose();
+        if (zombie.isDead) {
+          zombie.dispose();
           state.enemies.splice(i, 1);
           continue;
         }
-
+        
         // Sterbende Zombies können nicht mehr angreifen.
-        if (e.isDying) continue;
-
-        // Berechne die 3D-Distanz für den Angriff, um Angriffe durch den Boden zu verhindern.
-        const playerPos = state.player.position;
-        // OPTIMIERUNG: distanceToSquared ist schneller als distanceTo für Reichweiten-Checks.
-        const attackDistanceSq = playerPos.distanceToSquared(e.model.position);
-
-        if (attackDistanceSq < 1.5 * 1.5){ // Prüfe die tatsächliche 3D-Reichweite (1.5^2 = 2.25)
-          state.hp -= 15*dt;
-          showDamageEffect(); // Visuelles Feedback für Schaden
-          if (state.hp<=0){ gameOver(); } 
-        }
+        if (zombie.isDying) continue;
       }
     }
 
@@ -525,7 +541,7 @@
       for (const t of state.turrets) t.dispose();
       state.turrets.length=0;
       state.enemies.length = 0;
-      Object.assign(state, { running:true, gameOver:false, hp:100, credits:0, wave:0, time:0, damage:10, fireRate:6, lastShot:0, enemies:[], turrets:[], projectiles:[], costs:{turret:0, canon: 250, dmg:80,rate:90}, speed:10, friction:10, vel:new THREE.Vector3(), waveInProgress: false, timeUntilNextWave: 5, timeUntilAmbientSpawn: 15 });
+      Object.assign(state, { running:true, gameOver:false, hp:100, credits:0, wave:0, time:0, damage:10, fireRate:6, lastShot:0, enemies:[], turrets:[], projectiles:[], costs:{turret:0, canon: 250, heal: 100, dmg:80,rate:90}, speed:10, friction:10, vel:new THREE.Vector3(), waveInProgress: false, timeUntilNextWave: 5, timeUntilAmbientSpawn: 15 });
       state.player.position.copy(spawnPos);
       overlay.classList.add('hide');
       updateHUD();
